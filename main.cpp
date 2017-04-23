@@ -15,103 +15,69 @@ vector<string> *ReadFromFile(string path);
 
 string RemoveSpaces(string input);
 
-string GetMovAssignment(string op, string reg, string val, bool isReg = false);
+vector<string> GenerateAsm(vector<char> postfix, bool assn);
 
-string GetAvailableRegister(vector<tuple<bool, string, double> > &registers);
+vector<char> ConvertToPostfix(string input);
 
-void FillRegister(vector<tuple<bool, string, double> > &registers, string reg, double val);
+void SaveResult(vector<vector<string> > result);
 
-void EmptyRegister(vector<tuple<bool, string, double> > &registers, string reg);
+int main(int argc, char *argv[]) {
 
-string CheckForOperations(string val, vector<string> &results, vector<tuple<bool, string, double> > &registers);
+    if (argc <= 1) {
+        cout << "Please give the path to your input file as a command line parameter." << endl;
+        return 0;
+    }
 
-int main() {
-    vector<string> result;
-    vector<tuple<bool, string, double> > registers =
-            {
-                    make_tuple(false, "ax", NAN),
-                    make_tuple(false, "bx", NAN),
-                    make_tuple(false, "cx", NAN),
-                    make_tuple(false, "dx", NAN)
-            };
+    vector<vector<string> > result;
 
-    vector<string> statements = *(ReadFromFile(""));
+    vector<string> statements = *(ReadFromFile(argv[1]));
 
     // Generate asm code
     long size = statements.size();
     for (int i = 0; i < size; ++i) {
         string st = RemoveSpaces(statements[i]);
 
-        for (int j = 0; j < st.size(); ++j) {
-            if (st[j] == '=') {
-                // Assignment
-                string val = st.substr(j + 1, st.size());
+        std::size_t found = st.find("=");
+        if (found != std::string::npos) {
+            // Assignment
+            string val = st.substr((unsigned long) (found + 1), st.size());
 
-                /*
-                string resReg = CheckForOperations(val, result, registers);
-                string reg = GetAvailableRegister(registers);
-                FillRegister(registers, reg, NAN);
-                string r = GetMovAssignment("mov", reg, resReg, true);
-                result.push_back(r);
-                 */
-            } else {
-                // Print statement
-                /*
-                vector<int> opParanPos;
-                vector<int> clParanPos;
-                int mode = -1;
-                int opParan = 0;
-                int clParan = 0;
-                vector<string> values;
-                for (int k = 0; k < st.size(); ++k) {
-                    if(st[k] == '(')
-                    {
-                        opParanPos.push_back(k);
-                        opParan++;
-                        mode = 0;
-                    }
-                    else if(st[k] == ')')
-                    {
-                        clParanPos.push_back(k);
-                        clParan++;
+            vector<char> pVal = ConvertToPostfix(val);
+            vector<string> pRes = GenerateAsm(pVal, true);
 
-                        if(mode == 0)
-                        {
-                            string val = st.substr(opParanPos.back() + 1, k-opParanPos.back()-1);
-
-                            for (int l = 0; l < val.size(); ++l) {
-                                if(val[l] == '+' || val[l] == '-' || val[l] == '*' || val[l] == '/')
-                                {
-                                    char op = val[l];
-                                    string first = val.substr(0, l-1);
-                                    string second = val.substr(l);
-                                    string postFix = first + " " + second + " " + op;
-                                    result.push_back("Ins. to " + val);
-                                }
-                            }
-                            values.push_back(val);
-                        }
-                        mode = 1;
-
-                    }
-
-                }
-                 */
-            }
+            result.push_back(pRes);
+        } else {
+            // Print statement
+            vector<char> pVal = ConvertToPostfix(st);
+            vector<string> pRes = GenerateAsm(pVal, false);
+            result.push_back(pRes);
         }
     }
 
-    // Print result
-    for (int k = 0; k < result.size(); ++k) {
-        cout << result[k] << endl;
-    }
+    SaveResult(result);
 
     return 0;
 }
 
-
-vector<char> CovertToPostfix(string input)
+// Save the asm results as result.asm
+void SaveResult(vector<vector<string> > result)
 {
+    ofstream myfile ("result.asm");
+    if (myfile.is_open())
+    {
+        for (int i = 0; i < result.size(); ++i) {
+            for (int j = 0; j < result[i].size(); ++j) {
+                myfile << result[i][j] << "\n";
+            }
+        }
+
+        cout << "The result has been saved as result.asm." << endl;
+        myfile.close();
+    }
+}
+
+// Convert infix notation to postfix notation
+vector<char> ConvertToPostfix(string input) {
     map<char, int> opPrecedence = {
             {'*', 2},
             {'/', 2},
@@ -124,7 +90,7 @@ vector<char> CovertToPostfix(string input)
     vector<char> output;
     stack<char> opstack;
 
-    int size = input.size();
+    unsigned long size = input.size();
 
     for (int i = 0; i < size; ++i) {
         char c = input[i];
@@ -178,88 +144,48 @@ vector<char> CovertToPostfix(string input)
     return output;
 }
 
-string CheckForOperations(string val, vector<string> &results, vector<tuple<bool, string, double> > &registers) {
-    for (int i = 0; i < val.size(); ++i) {
-        switch (val[i]) {
-            case '+': {
-                string reg = GetAvailableRegister(registers);
-                string v1 = string(1, val[i - 1]);
-                string v2 = string(1, val[i + 1]);
-
-                FillRegister(registers, reg, stod(v1));
-
-                string r = GetMovAssignment("mov", reg, v1);
-                results.push_back(r);
-                string r2 = GetMovAssignment("add", reg, v2);
-                results.push_back(r2);
-                FillRegister(registers, reg, stod(v1));
-
-                return reg;
-            }
-            case '-': {
-                string reg = GetAvailableRegister(registers);
-                string v1 = string(1, val[i - 1]);
-                string v2 = string(1, val[i + 1]);
-
-                FillRegister(registers, reg, stod(v1));
-
-                string r = GetMovAssignment("mov", reg, v1);
-                results.push_back(r);
-                string r2 = GetMovAssignment("sub", reg, v2);
-                results.push_back(r2);
-                FillRegister(registers, reg, stod(v1));
-
-                return reg;
-            }
-            case '*': {
-
-            }
-            case '/': {
-
-            }
-            default: {
-                continue;
-            }
-        }
+// Convert postfix notation to ASM instructions
+vector<string> GenerateAsm(vector<char> postfix, bool assn) {
+    vector<string> output;
+    if (assn) {
+        output.push_back("PUSH offset VAL");
     }
-}
+    for (int i = 0; i < postfix.size(); ++i) {
 
-string GetAvailableRegister(vector<tuple<bool, string, double> > &registers) {
-    for (int i = 0; i < registers.size(); ++i) {
-        tuple<bool, string, double> t = registers[i];
-        if (!get<0>(t)) {
-            return get<1>(t);
+        switch (postfix[i]) {
+            case '+':
+                output.push_back("POP CX");
+                output.push_back("POP AX");
+                output.push_back("ADD AX, CX");
+                output.push_back("PUSH AX");
+                break;
+            case '-':
+                output.push_back("POP CX");
+                output.push_back("POP AX");
+                output.push_back("SUB AX, CX");
+                output.push_back("PUSH AX");
+                break;
+            case '*':
+                output.push_back("POP CX");
+                output.push_back("POP AX");
+                output.push_back("MULT CX");
+                output.push_back("PUSH AX");
+                break;
+            case '/':
+                output.push_back("MOV DX, 0");
+                output.push_back("POP CX");
+                output.push_back("POP AX");
+                output.push_back("DIV CX");
+                output.push_back("PUSH AX");
+                break;
+            default:
+                string s(1, postfix[i]);
+                output.push_back("PUSH " + s);
+                break;
         }
     }
 
-    throw invalid_argument("Out of registers!");
-}
-
-void FillRegister(vector<tuple<bool, string, double> > &registers, string reg, double val) {
-    for (int i = 0; i < registers.size(); ++i) {
-        tuple<bool, string, double> &t = registers[i];
-        if (get<1>(t) == reg) {
-            t = make_tuple(true, reg, val);
-        }
-    }
-}
-
-void EmptyRegister(vector<tuple<bool, string, double> > &registers, string reg) {
-    for (int i = 0; i < registers.size(); ++i) {
-        tuple<bool, string, double> &t = registers[i];
-        if (get<1>(t) == reg) {
-            t = make_tuple(false, reg, NAN);
-        }
-    }
-}
-
-
-string GetMovAssignment(string op, string reg, string val, bool isReg) {
-    if (!isReg) {
-        return op + " " + reg + "," + val + "d";
-    }
-    return op + " " + reg + "," + val;
-
+    return output;
 }
 
 string RemoveSpaces(string input) {
@@ -269,9 +195,8 @@ string RemoveSpaces(string input) {
 
 vector<string> *ReadFromFile(string path) {
     vector<string> *statements = new vector<string>();
-    string file = "((2 * 3) + 1 + (3 * 4)) + 3";
 
-    istringstream f(file);
+    ifstream f(path);
     string line;
     while (getline(f, line)) {
         // Push lines into vector
