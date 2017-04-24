@@ -4,8 +4,6 @@
 #include <vector>
 #include <algorithm>
 #include <tuple>
-#include <stdexcept>
-#include <string>
 #include <stack>
 #include <map>
 
@@ -33,7 +31,7 @@ int main(int argc, char *argv[]) {
     vector<string> statements = *(ReadFromFile(argv[1]));
 
     // Generate asm code
-    long size = statements.size();
+    unsigned int size = statements.size();
     for (int i = 0; i < size; ++i) {
         string st = RemoveSpaces(statements[i]);
 
@@ -150,6 +148,10 @@ vector<string> GenerateAsm(vector<char> postfix, bool assn) {
     if (assn) {
         output.push_back("PUSH offset VAL");
     }
+    else
+    {
+        output.push_back("MOV AH, 02h");
+    }
     for (int i = 0; i < postfix.size(); ++i) {
 
         switch (postfix[i]) {
@@ -185,6 +187,11 @@ vector<string> GenerateAsm(vector<char> postfix, bool assn) {
         }
     }
 
+    if(!assn)
+    {
+        output.push_back("MOV DX, AX");
+        output.push_back("int 21h");
+    }
     return output;
 }
 
